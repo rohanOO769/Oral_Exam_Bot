@@ -1,25 +1,58 @@
-import logo from './logo.svg';
-import './App.css';
+import React, { useState } from 'react';
+import { BrowserRouter as Router, Route, Routes, Navigate } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
+import QuestionSet from './pages/questionSet';
 
 function App() {
+  const [micPermissionGranted, setMicPermissionGranted] = useState(false);
+
+  const grantMicPermission = () => {
+    // Logic to grant microphone permission goes here
+    // For example, you can use the browser's built-in APIs like navigator.mediaDevices.getUserMedia
+
+    // Once permission is granted, update the state
+    setMicPermissionGranted(true);
+  };
+
   return (
-    <div className="App">
-      <header className="App-header">
-        <img src={logo} className="App-logo" alt="logo" />
-        <p>
-          Edit <code>src/App.js</code> and save to reload.
-        </p>
-        <a
-          className="App-link"
-          href="https://reactjs.org"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          Learn React
-        </a>
-      </header>
+    <Router>
+      <div className="App">
+        <Routes>
+          {/* Route for the question set */}
+          {micPermissionGranted ? (
+            <Route path="/questions" element={<QuestionSet />} />
+          ) : (
+            <Route path="/questions" element={<Navigate to="/" />} />
+          )}
+
+          {/* Main Page */}
+          <Route
+            path="/"
+            element={<MainPage grantMicPermission={grantMicPermission} />}
+          />
+        </Routes>
+      </div>
+    </Router>
+  );
+}
+
+function MainPage({ grantMicPermission }) {
+  const navigate = useNavigate();
+
+  const handleAlertClick = () => {
+    if (window.confirm("Click OK to grant microphone permission and proceed to the oral exam.")) {
+      grantMicPermission();
+      navigate('/questions'); // Manually navigate to the QuestionSet component
+    }
+  };
+
+  return (
+    <div>
+      <h2>Main Page</h2>
+      <button onClick={handleAlertClick}>Begin Oral Exam</button>
     </div>
   );
 }
+
 
 export default App;
