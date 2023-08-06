@@ -1,26 +1,44 @@
 const express = require('express');
 const bodyParser = require('body-parser');
 const axios = require('axios'); // Assuming you have Axios installed
+const pdf = require('./pdf'); // Import the PDF processing module
 
 const app = express();
 const port = 5000;
 
+// Enable CORS to allow requests from your frontend
+app.use((req, res, next) => {
+  res.setHeader('Access-Control-Allow-Origin', 'http://localhost:3000'); // Replace with your frontend's domain
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+  next();
+});
+
 app.use(bodyParser.json());
 
 // Initialize your OpenAI API key
-const openaiApiKey = 'your-openai-api-key';
+const openaiApiKey = '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'; // Replace with your OpenAI API key
 
 // Route to generate initial questions based on PDF content
 app.post('/generate-questions', async (req, res) => {
   try {
-    const extractedText = req.body.pdfContent;
+    // Load PDF contents from the backend
+    const pdfContents = await pdf.extractText();
+
+    // Additional prompts to enhance question generation
+    const additionalPrompts = [
+      'Generate questions based on the following PDF content:',
+      pdfContents
+    ];
+
+    // Join all prompts
+    const combinedPrompt = additionalPrompts.join('\n');
 
     // Generate initial question using the OpenAI language model
-    const prompt = `Generate questions based on the following text:\n${extractedText}`;
     const response = await axios.post(
       'https://api.openai.com/v1/engines/text-davinci-003/completions',
       {
-        prompt: prompt,
+        prompt: combinedPrompt,
         max_tokens: 50 // Adjust as needed
       },
       {
@@ -37,18 +55,6 @@ app.post('/generate-questions', async (req, res) => {
     console.error('Error generating questions:', error);
     res.status(500).json({ error: 'Failed to generate questions' });
   }
-});
-
-// Route to handle student responses
-app.post('/submit-response', (req, res) => {
-  const studentResponse = req.body.response;
-
-  // Process the student's response and generate feedback or follow-up questions
-  // Here, you can use the OpenAI API again to generate feedback or follow-up questions
-  const feedback = 'Great job! Your answer was clear and accurate.';
-  const followUpQuestion = 'Can you provide more details about that topic?';
-
-  res.json({ feedback, followUpQuestion });
 });
 
 app.listen(port, () => {
