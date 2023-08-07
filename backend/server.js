@@ -1,45 +1,60 @@
 const express = require('express');
 const bodyParser = require('body-parser');
-const axios = require('axios'); // Assuming you have Axios installed
-const pdf = require('./pdf'); // Import the PDF processing module
+const axios = require('axios');
+const pdf = require('./pdf'); // Assuming pdf.js is in the same directory
+const cors = require('cors');
+require('dotenv').config();
 
 const app = express();
 const port = 5000;
 
-// Enable CORS to allow requests from your frontend
-app.use((req, res, next) => {
-  res.setHeader('Access-Control-Allow-Origin', 'http://localhost:3000'); // Replace with your frontend's domain
-  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
-  next();
-});
-
 app.use(bodyParser.json());
 
-// Initialize your OpenAI API key
-const openaiApiKey = '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'; // Replace with your OpenAI API key
+// Configure CORS
+app.use(cors({
+  origin: 'http://localhost:3000', // Replace with your frontend's domain
+  methods: ['GET', 'POST', 'OPTIONS'],
+  allowedHeaders: ['Content-Type'],
+}));
 
-// Route to generate initial questions based on PDF content
-app.post('/generate-questions', async (req, res) => {
+const openaiApiKey = process.env.OPENAI_API_KEY;
+
+let pdfQuestions = [];
+
+(async () => {
   try {
-    // Load PDF contents from the backend
-    const pdfContents = await pdf.extractText();
+    const pdfText = await pdf.extractText();
+    pdfQuestions = pdfText.split('\n').filter(question => question.trim() !== '');
+    // console.log('Loaded', pdfQuestions.length, 'questions from PDF.');
+  } catch (error) {
+    console.error('Error loading questions from PDF:', error);
+  }
+})();
 
-    // Additional prompts to enhance question generation
-    const additionalPrompts = [
-      'Generate questions based on the following PDF content:',
-      pdfContents
-    ];
+app.post('/get-random-question', (req, res) => {
+  try {
+    const randomIndex = Math.floor(Math.random() * pdfQuestions.length);
+    const randomQuestion = pdfQuestions[randomIndex];
+    res.json({ question: randomQuestion });
+  } catch (error) {
+    console.error('Error fetching random question:', error);
+    res.status(500).json({ error: 'Failed to fetch random question' });
+  }
+});
 
-    // Join all prompts
-    const combinedPrompt = additionalPrompts.join('\n');
+app.post('/submit-answer', async (req, res) => {
+  const userAnswer = req.body.answer;
 
-    // Generate initial question using the OpenAI language model
+  try {
+    const currentQuestion = req.body.currentQuestion;
+
+    // Generate feedback using OpenAI API
+    const prompt = `User answer: ${userAnswer}\nExpected answer: ${getExpectedAnswer(currentQuestion)}\nIs the answer correct?`;
     const response = await axios.post(
-      'https://api.openai.com/v1/engines/text-davinci-003/completions',
+      'https://api.openai.com/v1/engines/davinci/completions',
       {
-        prompt: combinedPrompt,
-        max_tokens: 50 // Adjust as needed
+        prompt: prompt,
+        max_tokens: 100 // Adjust as needed
       },
       {
         headers: {
@@ -49,13 +64,24 @@ app.post('/generate-questions', async (req, res) => {
       }
     );
 
-    const initialQuestion = response.data.choices[0].text.trim();
-    res.json({ question: initialQuestion });
+    const feedback = response.data.choices[0].text.trim();
+    const isCorrect = feedback.toLowerCase().includes('yes');
+
+    const followUpQuestion = isCorrect ? 'Great job! Please provide more details.' : 'It seems your answer might need further clarification. Can you elaborate?';
+
+    res.json({ feedback, followUpQuestion, isCorrect });
   } catch (error) {
-    console.error('Error generating questions:', error);
-    res.status(500).json({ error: 'Failed to generate questions' });
+    console.error('Error generating follow-up question:', error);
+    res.status(500).json({ error: 'Failed to generate follow-up question' });
   }
 });
+
+// Helper function to get expected answer based on the question
+function getExpectedAnswer(question) {
+  // Implement your logic here to retrieve or compute the expected answer for the given question
+  // For demonstration purposes, returning a hardcoded answer
+  return 'Sample expected answer';
+}
 
 app.listen(port, () => {
   console.log(`Server is running on port ${port}`);
