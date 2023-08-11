@@ -15,9 +15,10 @@ function QuestionSet() {
   const fetchRandomQuestion = async () => {
     try {
       const response = await fetch('http://localhost:5000/get-random-question', {
-        method: 'POST', // Use POST method
+        method: 'POST',
       });
       const data = await response.json();
+      console.log('Received data:', data);
       const randomQuestion = data.question;
       setCurrentQuestion(randomQuestion);
       setFollowUpQuestion('');
@@ -40,7 +41,7 @@ function QuestionSet() {
       const data = await response.json();
       const generatedFollowUpQuestion = data.followUpQuestion;
       setFollowUpQuestion(generatedFollowUpQuestion);
-      addToConversation(currentQuestion, userAnswer, data.isCorrect); // Save question, answer, and correctness
+      addToConversation(currentQuestion, userAnswer); // Save question and answer
       setCurrentQuestion(generatedFollowUpQuestion); // Set follow-up question as the current question
       setUserAnswer('');
     } catch (error) {
@@ -54,24 +55,9 @@ function QuestionSet() {
   };
 
   const handleAnswerSubmission = () => {
-    if (userAnswer.toLowerCase().includes("don't know") || userAnswer.toLowerCase().includes("not sure")) {
-      // User doesn't know the answer, provide a motivating response
-      const motivatingResponse = "That's alright! Let's move on to the next question.";
-  
-      // Add both the current question and interviewer's motivating response to the conversation history
-      addToConversation("Interviewer:", currentQuestion); // Display interviewer's question
-      addToConversation("Interviewer:", motivatingResponse); // Display interviewer's response
-  
-      // Fetch the next random question
-      fetchRandomQuestion();
-    } else {
-      // User provided an answer, fetch a follow-up question
-      fetchFollowUpQuestion();
-    }
+    // Handle user's answer submission logic here
+    fetchFollowUpQuestion();
   };
-  
-  
-  
 
   return (
     <div>
@@ -81,30 +67,33 @@ function QuestionSet() {
         <ul>
           {conversationHistory.map((item, index) => (
             <li key={index}>
-              <strong>Question:</strong> {item.question}
+              <strong>Interviewer:</strong> {item.question}
               <br />
               <strong>Interviewee:</strong> {item.answer}
             </li>
           ))}
         </ul>
       </div>
+
       <h2>Question Set</h2>
 
       {/* Display current question */}
-      <p>Question: {currentQuestion}</p>
+      <p><strong>Question:</strong> {currentQuestion}</p>
 
       {/* Input field for user's answer */}
-      <textarea
-        rows="4"
-        cols="50"
-        value={userAnswer}
-        onChange={(e) => setUserAnswer(e.target.value)}
-      />
+      <div>
+        <label htmlFor="userAnswer">Your Answer:</label>
+        <textarea
+          id="userAnswer"
+          rows="4"
+          cols="50"
+          value={userAnswer}
+          onChange={(e) => setUserAnswer(e.target.value)}
+        />
+      </div>
 
       {/* Button to submit answer */}
       <button onClick={handleAnswerSubmission}>Submit Answer</button>
-
-      
 
       {/* Button to go back to the main page */}
       <button onClick={() => navigate('/')}>Go Back to Main Page</button>

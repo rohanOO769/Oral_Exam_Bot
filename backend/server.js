@@ -1,40 +1,37 @@
 const express = require('express');
 const bodyParser = require('body-parser');
-const axios = require('axios');
-const pdf = require('./pdf'); // Assuming pdf.js is in the same directory
 const cors = require('cors');
 require('dotenv').config();
-
+const { spawn } = require('child_process');
+const { extractText } = require('./pdf'); 
 const app = express();
 const port = 5000;
 
 app.use(bodyParser.json());
 
-// Configure CORS
+// Set up CORS
 app.use(cors({
   origin: 'http://localhost:3000', // Replace with your frontend's domain
   methods: ['GET', 'POST', 'OPTIONS'],
   allowedHeaders: ['Content-Type'],
 }));
 
-const openaiApiKey = process.env.OPENAI_API_KEY;
+// Handle preflight requests for submit-answer route
+app.options('/submit-answer', cors());
 
-let pdfQuestions = [];
-
-(async () => {
+app.post('/get-random-question', async (req, res) => {
   try {
-    const pdfText = await pdf.extractText();
-    pdfQuestions = pdfText.split('\n').filter(question => question.trim() !== '');
-    // console.log('Loaded', pdfQuestions.length, 'questions from PDF.');
-  } catch (error) {
-    console.error('Error loading questions from PDF:', error);
-  }
-})();
-
-app.post('/get-random-question', (req, res) => {
-  try {
+    const pdfText = await extractText();
+    console.log('PDF Text:', pdfText); // Log the extracted PDF text
+    
+    const pdfQuestions = pdfText.split('\n').filter(question => question.trim() !== '');
+    console.log('pdfQuestions:', pdfQuestions); // Log the populated array
+    
     const randomIndex = Math.floor(Math.random() * pdfQuestions.length);
     const randomQuestion = pdfQuestions[randomIndex];
+    
+    console.log('Random question:', randomQuestion);
+    
     res.json({ question: randomQuestion });
   } catch (error) {
     console.error('Error fetching random question:', error);
@@ -42,47 +39,54 @@ app.post('/get-random-question', (req, res) => {
   }
 });
 
-app.post('/submit-answer', async (req, res) => {
+
+app.post('/submit-answer', (req, res) => {
+  console.log('Received submit-answer request:', req.body); // Log received data
+
   const userAnswer = req.body.answer;
+  const currentQuestion = req.body.currentQuestion;
+  const userFollowUpAnswer = req.body.userFollowUpAnswer;
 
-  try {
-    const currentQuestion = req.body.currentQuestion;
+  console.log('User Answer:', userAnswer);
+  console.log('Current Question:', currentQuestion);
+  console.log('User Follow-Up Answer:', userFollowUpAnswer);
 
-    // Generate feedback using OpenAI API
-    const prompt = `User answer: ${userAnswer}\nExpected answer: ${getExpectedAnswer(currentQuestion)}\nIs the answer correct?`;
-    const response = await axios.post(
-      'https://api.openai.com/v1/engines/davinci/completions',
-      {
-        prompt: prompt,
-        max_tokens: 100 // Adjust as needed
-      },
-      {
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${openaiApiKey}`
-        }
-      }
-    );
+  const pythonScriptPath = '.'; // Set the path to your Python script directory
+  // Use spawn to execute the Python script
+  const pythonProcess = spawn('python', ['app.py',currentQuestion, userAnswer], {
+    cwd: pythonScriptPath,
+    shell: true
+  });
+  
+  console.log('Running Python script...');
+  let pythonOutput = '';
 
-    const feedback = response.data.choices[0].text.trim();
-    const isCorrect = feedback.toLowerCase().includes('yes');
+  // Capture stdout output
+  pythonProcess.stdout.on('data', (data) => {
+    pythonOutput += data.toString();
+    console.log(`Python output1: ${pythonOutput}`);
+    console.log(`Python output2: ${data}`);
+  });
+  // Handle process close
+  pythonProcess.on('close', (code) => {
+    console.log('Python process exited with code', code);
+    
+    try {
+      const results = JSON.parse(pythonOutput);
+      console.log('Python script results:', results);
 
-    const followUpQuestion = isCorrect ? 'Great job! Please provide more details.' : 'It seems your answer might need further clarification. Can you elaborate?';
-
-    res.json({ feedback, followUpQuestion, isCorrect });
-  } catch (error) {
-    console.error('Error generating follow-up question:', error);
-    res.status(500).json({ error: 'Failed to generate follow-up question' });
-  }
+      const followUpQuestion = results.followUpQuestion;
+      const isCorrect = results.isCorrect;
+      res.json({ followUpQuestion, isCorrect });
+    } catch (error) {
+      console.error('Error parsing Python output:', error);
+      res.status(500).json({ error: 'Failed to process request' });
+    }
+  });
 });
-
-// Helper function to get expected answer based on the question
-function getExpectedAnswer(question) {
-  // Implement your logic here to retrieve or compute the expected answer for the given question
-  // For demonstration purposes, returning a hardcoded answer
-  return 'Sample expected answer';
-}
 
 app.listen(port, () => {
   console.log(`Server is running on port ${port}`);
 });
+
+
