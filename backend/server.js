@@ -1,37 +1,58 @@
+//server.js
+
 const express = require('express');
 const bodyParser = require('body-parser');
 const cors = require('cors');
-require('dotenv').config();
+const { MongoClient, ServerApiVersion } = require('mongodb');
+const { extractText } = require('./pdf');
 const { spawn } = require('child_process');
-const { extractText } = require('./pdf'); 
+
 const app = express();
 const port = 5000;
 
 app.use(bodyParser.json());
 
-// Set up CORS
 app.use(cors({
   origin: 'http://localhost:3000', // Replace with your frontend's domain
   methods: ['GET', 'POST', 'OPTIONS'],
   allowedHeaders: ['Content-Type'],
 }));
 
-// Handle preflight requests for submit-answer route
 app.options('/submit-answer', cors());
+
+// Replace <password> with your actual MongoDB Atlas password
+const uri = "mongodb+srv://aminrohan54:admin@python.jdnsost.mongodb.net/?retryWrites=true&w=majority";
+
+const client = new MongoClient(uri, {
+  serverApi: {
+    version: ServerApiVersion.v1,
+    strict: true,
+    deprecationErrors: true,
+  }
+});
+
+async function connectToMongoDB() {
+  try {
+    await client.connect();
+    console.log('Connected to MongoDB Atlas');
+  } catch (error) {
+    console.error('Error connecting to MongoDB Atlas:', error);
+  }
+}
+
+connectToMongoDB();
 
 app.post('/get-random-question', async (req, res) => {
   try {
     const pdfText = await extractText();
-    console.log('PDF Text:', pdfText); // Log the extracted PDF text
-    
     const pdfQuestions = pdfText.split('\n').filter(question => question.trim() !== '');
-    console.log('pdfQuestions:', pdfQuestions); // Log the populated array
-    
-    const randomIndex = Math.floor(Math.random() * pdfQuestions.length);
-    const randomQuestion = pdfQuestions[randomIndex];
-    
+    const formattedQuestions = pdfQuestions.map(question => question.replace(/^\d+\.\s*/, ''));
+
+    const randomIndex = Math.floor(Math.random() * formattedQuestions.length);
+    const randomQuestion = formattedQuestions[randomIndex];
+
     console.log('Random question:', randomQuestion);
-    
+
     res.json({ question: randomQuestion });
   } catch (error) {
     console.error('Error fetching random question:', error);
@@ -39,54 +60,66 @@ app.post('/get-random-question', async (req, res) => {
   }
 });
 
+app.post('/submit-answer', async (req, res) => {
+  try {
+    const userAnswer = req.body.answer;
+    const currentQuestion = req.body.currentQuestion;
+    const userFollowUpAnswer = req.body.userFollowUpAnswer;
 
-app.post('/submit-answer', (req, res) => {
-  console.log('Received submit-answer request:', req.body); // Log received data
+    const db = client.db('question_feedback'); // Replace with your database name
+    const collection = db.collection('userResponses'); // Replace with your collection name
 
-  const userAnswer = req.body.answer;
-  const currentQuestion = req.body.currentQuestion;
-  const userFollowUpAnswer = req.body.userFollowUpAnswer;
+    const result = await collection.insertOne({
+      answer: userAnswer,
+      question: currentQuestion,
+      followUpAnswer: userFollowUpAnswer,
+      timestamp: new Date()
+    });
 
-  console.log('User Answer:', userAnswer);
-  console.log('Current Question:', currentQuestion);
-  console.log('User Follow-Up Answer:', userFollowUpAnswer);
+    console.log('Data inserted into MongoDB:', result);
 
-  const pythonScriptPath = '.'; // Set the path to your Python script directory
-  // Use spawn to execute the Python script
-  const pythonProcess = spawn('python', ['app.py',currentQuestion, userAnswer], {
-    cwd: pythonScriptPath,
-    shell: true
-  });
-  
-  console.log('Running Python script...');
-  let pythonOutput = '';
+    // Execute the Python script
+    const pythonScriptPath = '.'; // Set the path to your Python script directory
+    const pythonProcess = spawn('python', ['new_app.py', currentQuestion, userAnswer], {
+      cwd: pythonScriptPath,
+      shell: true
+    });
 
-  // Capture stdout output
-  pythonProcess.stdout.on('data', (data) => {
-    pythonOutput += data.toString();
-    console.log(`Python output1: ${pythonOutput}`);
-    console.log(`Python output2: ${data}`);
-  });
-  // Handle process close
-  pythonProcess.on('close', (code) => {
-    console.log('Python process exited with code', code);
-    
-    try {
-      const results = JSON.parse(pythonOutput);
-      console.log('Python script results:', results);
+    console.log('Running Python script...');
+    let pythonOutput = '';
 
-      const followUpQuestion = results.followUpQuestion;
-      const isCorrect = results.isCorrect;
-      res.json({ followUpQuestion, isCorrect });
-    } catch (error) {
-      console.error('Error parsing Python output:', error);
-      res.status(500).json({ error: 'Failed to process request' });
-    }
-  });
+    // Capture stdout output
+    pythonProcess.stdout.on('data', (data) => {
+      pythonOutput += data.toString();
+      console.log(`Python output:\n ${data}`);
+      // Check if the output contains the pretty_feedback
+      if (data.includes('pretty_feedback')) {
+        const prettyFeedback = data.match(/pretty_feedback:\s*(.*)/)[1];
+        console.log('Pretty Feedback:', prettyFeedback);
+      }
+    });
+
+    // Handle process close
+    pythonProcess.on('close', (code) => {
+      console.log('Python process exited with code', code);
+      console.log('Full Python output:', pythonOutput);
+      // You can parse and send the Python output to the client here if needed
+      res.json({ success: true });
+    });
+
+  } catch (error) {
+    console.error('Error inserting data into MongoDB:', error);
+    res.status(500).json({ error: 'Failed to insert data' });
+  }
 });
 
 app.listen(port, () => {
   console.log(`Server is running on port ${port}`);
 });
 
-
+process.on('SIGINT', () => {
+  client.close().then(() => {
+    console.log('MongoDB connection closed');
+    process.exit(0);
+  });
+});

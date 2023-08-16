@@ -8,14 +8,13 @@ import time
 import sys
 import json
 
-print("Starting app.py")
-
+# print("Starting app.py")
 
 # Set your OpenAI API key
 openai.api_key = os.getenv("OPENAI_API_KEY")
 
 def verify_answer(question, user_answer):
-    print("Verifying answer...")
+    # print("Verifying answer...")
     prompt = f"{question}\nUser answer: {user_answer}\nIs the answer correct? (yes or no)(make it yes if it is approximately correct(For example if the user is unable to provide the exact number.)) \n"
     response = openai.Completion.create(
         engine="text-davinci-003",
@@ -26,9 +25,6 @@ def verify_answer(question, user_answer):
     feedback = response.choices[0].text.strip().lower()
     
     if feedback == "yes":
-        is_correct = True
-        print("Correct answer! Well done!")
-
         prompt2 = f"Question: {question}\nUser answer: {user_answer}\n Speak about it (within 100 words)"
         response2 = openai.Completion.create(
             engine="text-davinci-003",
@@ -36,29 +32,45 @@ def verify_answer(question, user_answer):
             max_tokens=200
         )
         feedback2 = response2.choices[0].text.strip().lower()
-        print("Feedback: ",feedback2)
+        
+        feedback_data = {
+            "is_correct": True,
+            "feedback": "Correct answer! Well done!",
+            "follow_up_question": feedback2
+        }        
 
     elif feedback== "no":
-        is_correct = False
-        print("It seems your answer need bit clarification. Could you elaborate?")
-        user_answer1 = input(f"Your Answer: ")
+        feedback_data = {
+            "is_correct": False,
+            "feedback": "It seems your answer needs clarification. Could you elaborate?"
+        }
+        user_answer1 = sys.argv[2]
         verify_answer(question, user_answer1)
 
     elif any(keyword in user_answer for keyword in ["don't know", "not sure", "no idea"]):
-        is_correct = False
-        print("That's okay! Mistakes happen. Remember, every attempt is a step towards learning.")
-
+        feedback_data = {
+            "is_correct": False,
+            "feedback": "That's okay! Mistakes happen. Remember, every attempt is a step towards learning."
+        }
+        
     else:
-        is_correct = False
-        print('Sorry. Can you repeat')
-        user_answer2 = input(f"Your Answer: ")
+        feedback_data = {
+            "is_correct": False,
+            "feedback": "Sorry. Can you repeat?"
+        }
+        user_answer2 = sys.argv[2]
         verify_answer(question, user_answer2)
 
     time.sleep(20)
-    return is_correct
+    # print("Feedback data:", feedback_data)
+    sys.stdout.flush()
+    pretty_feedback = json.dumps(feedback_data, indent=4)
+    print(pretty_feedback)
+    print(feedback_data['is_correct'])
+    return feedback_data['is_correct']
 
 def generate_followup_question(previous_question, user_answer):
-    print("\nGenerating follow-up question...")
+    # print("\nGenerating follow-up question...")
     prompt = f"Based on your previous response:\n\nQ: {previous_question}\nA: {user_answer}\n\nGenerate a follow-up question:"
     response = openai.Completion.create(
         engine="text-davinci-003",
@@ -67,13 +79,18 @@ def generate_followup_question(previous_question, user_answer):
     )
 
     generated_text = response.choices[0].text.strip()
+    followup_data = {
+        "follow_up_question": generated_text
+    }
     # print("Response: ",response)
     # print("generated text: ",generated_text)
-    time.sleep(8)  # Add a delay of 20 seconds
+    time.sleep(20)  # Add a delay of 20 seconds
+    # print("Follow-up data:", followup_data)
+    
     return generated_text
 
 
-print("Finished app.py")
+# print("Finished app.py")
 # Main function
 def main():
     # Ask the main question
@@ -96,12 +113,12 @@ def main():
             user_answer = sys.argv[2]
             
             is_correct = verify_answer(current_question, user_answer)
-
+            time.sleep(20)
             try:
                 while is_correct:
                     # Generate follow-up question
                     followup_question = generate_followup_question(current_question, user_answer)
-                    user_answer1 = input(f"Follow-up Question: {followup_question}\nYour Answer: ")
+                    user_answer1 = sys.argv[2]
                     verify_answer(followup_question, user_answer1)
                     current_question = followup_question
             except KeyboardInterrupt:
