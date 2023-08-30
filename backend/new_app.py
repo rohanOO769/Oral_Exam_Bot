@@ -9,15 +9,13 @@ import sys
 import json
 from pymongo.mongo_client import MongoClient
 from pymongo.server_api import ServerApi
-from bson import ObjectId
-import uuid
 import pymongo
 
 # Set your OpenAI API key
 openai.api_key = os.getenv("OPENAI_API_KEY")
 
 # MongoDB URI
-uri = "mongodb+srv://aminrohan54:admin@python.jdnsost.mongodb.net/?retryWrites=true&w=majority"
+uri = os.getenv("MONGO_CLIENT")
 
 # Create a new client and connect to the server
 client = MongoClient(uri, server_api=ServerApi('1'))
@@ -26,6 +24,7 @@ client = MongoClient(uri, server_api=ServerApi('1'))
 db = client["question_feedback"]
 user_responses_collection = db["userResponses"]
 feedback_collection = db["feedback"]
+followup_collection = db["followUp"]
 
 def verify_answer(question, user_answer):
     latest_feedback = feedback_collection.find_one(sort=[('_id', pymongo.DESCENDING)])
@@ -107,7 +106,7 @@ def verify_answer(question, user_answer):
 def generate_followup_question(previous_question, user_answer):
     print("\nGenerating follow-up question...")
 
-    latest_feedback = feedback_collection.find_one(sort=[('_id', pymongo.DESCENDING)])
+    latest_feedback = followup_collection.find_one(sort=[('_id', pymongo.DESCENDING)])
 
     # Check if a document was found in the collection
     if latest_feedback is None:
@@ -135,7 +134,7 @@ def generate_followup_question(previous_question, user_answer):
     }
 
     # Insert the follow-up data into the MongoDB collection
-    feedback_collection.insert_one(followup_data)
+    followup_collection.insert_one(followup_data)
 
     return generated_text
 
@@ -158,7 +157,7 @@ def main():
                 while is_correct:
                     # Generate follow-up question
                     followup_question = generate_followup_question(current_question, user_answer1)
-                    user_answer2 = input(f"Follow-up Question: {followup_question}\nYour Answer: ")
+                    user_answer2 = latest_response.get('answer') 
                     print("Running the verify function")
                     time.sleep(20)
                     verify_answer(followup_question, user_answer2)

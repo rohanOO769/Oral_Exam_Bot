@@ -1,6 +1,8 @@
+// questionSet.jsx
+
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-
+import Axios from "axios";
 function QuestionSet() {
   const navigate = useNavigate();
   const [currentQuestion, setCurrentQuestion] = useState('');
@@ -28,8 +30,12 @@ function QuestionSet() {
     }
   };
 
-  const fetchFollowUpQuestion = async () => {
+  const fetchFollowUpQuestion = async (req, res) => {
     try {
+      // Add the current question and user answer to the conversation history
+      addToConversation(currentQuestion, userAnswer);
+  
+      // Send the user's answer to the server for follow-up question generation
       const response = await fetch('http://localhost:5000/submit-answer', {
         method: 'POST',
         headers: {
@@ -37,17 +43,47 @@ function QuestionSet() {
         },
         body: JSON.stringify({ answer: userAnswer, currentQuestion }),
       });
+    
+      try {
+        const response2 = await Axios.post('http://localhost:5000/get-follow-up-question', {});
+        const responseData = response2.data;
+        // setData(responseData);
+        console.log("Follow-Up Question Data:", responseData);
+      
+          // setCurrentQuestion(response2.currentQuestion);
 
-      const data = await response.json();
-      const generatedFollowUpQuestion = data.followUpQuestion;
-      setFollowUpQuestion(generatedFollowUpQuestion);
-      addToConversation(currentQuestion, userAnswer); // Save question and answer
-      setCurrentQuestion(generatedFollowUpQuestion); // Set follow-up question as the current question
-      setUserAnswer('');
+        // const response2 = await fetch(
+        //   'http://localhost:5000/get-follow-up-question',
+        //   {
+        //     method: 'GET',
+        //     // Apply the cors middleware directly to the fetch request
+        //     headers: cors().headers,
+        //   });
+        // const data = await response2.json();
+        
+        // console.log("Received: ",data);
+      
+        // const generatedFollowUpQuestion = data.follow_up_question;
+      
+        // Now you can use the generatedFollowUpQuestion as needed.
+        // Update state to display the follow-up question as the current question
+        setCurrentQuestion(responseData.follow_up_question); // Update this line
+        setFollowUpQuestion(''); // Clear follow-up question
+        setUserAnswer(''); // Clear user answer
+      } catch (error) {
+        console.error('Error fetching follow-up question:', error);
+        // Handle the error appropriately, e.g., return an error response to the client.
+        return res.status(500).json({ error: 'Error fetching follow-up question from the server' });
+      }
+      
+
+      
     } catch (error) {
       console.error('Error fetching follow-up question:', error);
     }
+      
   };
+  
 
   const addToConversation = (question, answer) => {
     const newItem = { question, answer };

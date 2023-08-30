@@ -1,4 +1,4 @@
-//server.js
+// server.js
 
 const express = require('express');
 const bodyParser = require('body-parser');
@@ -6,6 +6,9 @@ const cors = require('cors');
 const { MongoClient, ServerApiVersion } = require('mongodb');
 const { extractText } = require('./pdf');
 const { spawn } = require('child_process');
+const fetch = require('node-fetch');
+
+require('dotenv').config();
 
 const app = express();
 const port = 5000;
@@ -18,10 +21,8 @@ app.use(cors({
   allowedHeaders: ['Content-Type'],
 }));
 
-app.options('/submit-answer', cors());
-
 // Replace <password> with your actual MongoDB Atlas password
-const uri = "mongodb+srv://aminrohan54:admin@python.jdnsost.mongodb.net/?retryWrites=true&w=majority";
+const uri = process.env.MONGO_CLIENT;
 
 const client = new MongoClient(uri, {
   serverApi: {
@@ -39,6 +40,38 @@ async function connectToMongoDB() {
     console.error('Error connecting to MongoDB Atlas:', error);
   }
 }
+
+async function fetchFollowUpQuestionFromDatabase() {
+  try {
+    const db = client.db('question_feedback');
+    const collection = db.collection('followUp');
+
+    // Fetch the latest user-specific follow-up question
+    const latestResponse = await collection.findOne({}, { sort: { _id: -1 } });
+
+    if (latestResponse) {
+      // Extract the follow-up question from the response
+      const followUpQuestion = latestResponse.follow_up_question;
+      return followUpQuestion;
+    } else {
+      return '';
+    }
+  } catch (error) {
+    console.error('Error fetching follow-up question:', error);
+    throw new Error('Failed to fetch follow-up question');
+  }
+}
+
+app.post('/get-follow-up-question', async (req, res) => {
+  try {
+    const followUpQuestion = await fetchFollowUpQuestionFromDatabase();
+    // Send the follow-up question data to the frontend
+    res.json({ follow_up_question: followUpQuestion });
+  } catch (error) {
+    console.error('Error fetching follow-up question:', error);
+    res.status(500).json({ error: 'Failed to fetch follow-up question' });
+  }
+});
 
 connectToMongoDB();
 
@@ -60,19 +93,31 @@ app.post('/get-random-question', async (req, res) => {
   }
 });
 
+app.options('/submit-answer', cors());
+
 app.post('/submit-answer', async (req, res) => {
   try {
-    const userAnswer = req.body.answer;
-    const currentQuestion = req.body.currentQuestion;
-    const userFollowUpAnswer = req.body.userFollowUpAnswer;
+    var userAnswer = req.body.answer;
+    var currentQuestion = req.body.currentQuestion;
+    console.log("Current Question: ",currentQuestion);
+    console.log("User Answer: ",userAnswer);
 
     const db = client.db('question_feedback'); // Replace with your database name
     const collection = db.collection('userResponses'); // Replace with your collection name
+    const latestFeedback = await collection.findOne({}, { sort: { _id: -1 } });
+
+    let verifyAnswerIdCounter;
+
+    if (latestFeedback === null) {
+      verifyAnswerIdCounter = 1; // Set a default value if no documents are found
+    } else {
+      verifyAnswerIdCounter = latestFeedback._id + 1;
+    }
 
     const result = await collection.insertOne({
+      _id: verifyAnswerIdCounter,
       answer: userAnswer,
       question: currentQuestion,
-      followUpAnswer: userFollowUpAnswer,
       timestamp: new Date()
     });
 
@@ -80,7 +125,7 @@ app.post('/submit-answer', async (req, res) => {
 
     // Execute the Python script
     const pythonScriptPath = '.'; // Set the path to your Python script directory
-    const pythonProcess = spawn('python', ['new_app.py', currentQuestion, userAnswer], {
+    const pythonProcess = spawn('python', ['application.py', currentQuestion, userAnswer], {
       cwd: pythonScriptPath,
       shell: true
     });
@@ -99,18 +144,51 @@ app.post('/submit-answer', async (req, res) => {
       }
     });
 
-    // Handle process close
-    pythonProcess.on('close', (code) => {
+    pythonProcess.on('close', async (code) => {
       console.log('Python process exited with code', code);
       console.log('Full Python output:', pythonOutput);
-      // You can parse and send the Python output to the client here if needed
+
+      // Fetch the follow-up question after the Python script completes
+      try {
+        const followUpQuestion = await fetchFollowUpQuestionFromDatabase();
+
+        if (followUpQuestion !== '') {
+          console.log('Follow-Up Question:', followUpQuestion);
+        } else {
+          console.log('No data found in the Follow up database.');
+        }
+      } catch (error) {
+        console.error('Error fetching follow-up question:', error);
+      }
+
+      // Call the /get-follow-up-question endpoint after the Python script completes
+      try {
+        const response = await fetch('http://localhost:5000/get-follow-up-question', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({}) // Add any required data in the body if needed
+        });
+
+        const data = await response.json();
+        console.log("Follow-Up Question Data:", data);
+        // Here, you can take further actions related to the follow-up question data if needed.
+      } catch (error) {
+        console.error('Error calling /get-follow-up-question:', error);
+      }
+
       res.json({ success: true });
+      console.log("Exited Python");
     });
 
   } catch (error) {
     console.error('Error inserting data into MongoDB:', error);
     res.status(500).json({ error: 'Failed to insert data' });
+    // Close the connection
+    client.close();
   }
+
 });
 
 app.listen(port, () => {
