@@ -41,7 +41,7 @@ async function connectToMongoDB() {
   }
 }
 
-async function fetchFollowUpQuestionFromDatabase() {
+async function fetchFollowUpQuestionAndFeedbackFromDatabase() {
   try {
     const db = client.db('question_feedback');
     const collection = db.collection('followUp');
@@ -50,23 +50,51 @@ async function fetchFollowUpQuestionFromDatabase() {
     const latestResponse = await collection.findOne({}, { sort: { _id: -1 } });
 
     if (latestResponse) {
-      // Extract the follow-up question from the response
-      const followUpQuestion = latestResponse.follow_up_question;
-      return followUpQuestion;
-    } else {
-      return '';
+      // Extract the follow-up question and feedback from the response
+      const followUpQuestion = latestResponse.follow_up_question || '';
+      const InterviewerFeedback = latestResponse.feedback || '';
+
+      // Create a JSON object containing both values
+      const responseJson = {
+        follow_up_question: followUpQuestion,
+        feedback: InterviewerFeedback,
+      };
+
+      return responseJson;
     }
+
+    // If there's no valid follow-up question or latestResponse is null, return an empty JSON object
+    return {};
   } catch (error) {
-    console.error('Error fetching follow-up question:', error);
-    throw new Error('Failed to fetch follow-up question');
+    console.error('Error fetching follow-up question and feedback:', error);
+    throw new Error('Failed to fetch follow-up question and feedback');
   }
 }
 
+
+
 app.post('/get-follow-up-question', async (req, res) => {
   try {
-    const followUpQuestion = await fetchFollowUpQuestionFromDatabase();
-    // Send the follow-up question data to the frontend
-    res.json({ follow_up_question: followUpQuestion });
+    const response = await fetchFollowUpQuestionAndFeedbackFromDatabase();
+    if (response !== '') {
+      if (response.follow_up_question !== undefined) {
+        console.log('Follow-Up Question:', response.follow_up_question);
+      } else {
+        console.log('No Follow-Up Question found.');
+      }
+
+      if (response.feedback !== undefined) {
+        console.log("Interviewer's Response:", response.feedback);
+      } else {
+        console.log("No Interviewer's Response found.");
+      }
+      // Send the follow-up question data to the frontend
+      res.json({ follow_up_question: response.follow_up_question, feedback: response.feedback });
+    } else {
+      console.log('No data found in the Follow-up database.');
+    }
+    
+    
   } catch (error) {
     console.error('Error fetching follow-up question:', error);
     res.status(500).json({ error: 'Failed to fetch follow-up question' });
@@ -136,7 +164,7 @@ app.post('/submit-answer', async (req, res) => {
     // Capture stdout output
     pythonProcess.stdout.on('data', (data) => {
       pythonOutput += data.toString();
-      console.log(`Python output:\n ${data}`);
+      // console.log(`Python output:\n ${data}`);
       // Check if the output contains the pretty_feedback
       if (data.includes('pretty_feedback')) {
         const prettyFeedback = data.match(/pretty_feedback:\s*(.*)/)[1];
@@ -146,20 +174,32 @@ app.post('/submit-answer', async (req, res) => {
 
     pythonProcess.on('close', async (code) => {
       console.log('Python process exited with code', code);
-      console.log('Full Python output:', pythonOutput);
+      console.log('Full Python output: ', pythonOutput);
 
-      // Fetch the follow-up question after the Python script completes
-      try {
-        const followUpQuestion = await fetchFollowUpQuestionFromDatabase();
+      // // Fetch the follow-up question after the Python script completes
+      // try {
+      //   const response = await fetchFollowUpQuestionFromDatabase();
 
-        if (followUpQuestion !== '') {
-          console.log('Follow-Up Question:', followUpQuestion);
-        } else {
-          console.log('No data found in the Follow up database.');
-        }
-      } catch (error) {
-        console.error('Error fetching follow-up question:', error);
-      }
+      //   if (response !== '') {
+      //     if (response.follow_up_question !== undefined) {
+      //       console.log('Follow-Up Question:', response.follow_up_question);
+      //     } else {
+      //       console.log('No Follow-Up Question found.');
+      //     }
+
+      //     if (response.Interviewer !== undefined) {
+      //       console.log("Interviewer's Response:", response.Interviewer);
+      //     } else {
+      //       console.log("No Interviewer's Response found.");
+      //     }
+      //   } else {
+      //     console.log('No data found in the Follow-up database.');
+      //   }
+      // } catch (error) {
+      //   console.error('Error fetching follow-up question:', error);
+      // }
+
+      
 
       // Call the /get-follow-up-question endpoint after the Python script completes
       try {

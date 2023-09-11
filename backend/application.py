@@ -10,6 +10,7 @@ import json
 from pymongo.mongo_client import MongoClient
 from pymongo.server_api import ServerApi
 import pymongo
+import requests
 
 # Set your OpenAI API key
 openai.api_key = os.getenv("OPENAI_API_KEY")
@@ -19,6 +20,8 @@ uri = os.getenv("MONGO_CLIENT")
 
 # Create a new client and connect to the server
 client = MongoClient(uri, server_api=ServerApi('1'))
+
+uncertainty_words = ["don't know", "not sure", "no idea","uncertain", "confused", "blank", "lost"]
 
 # Select the appropriate database and collections
 db = client["question_feedback"]
@@ -34,6 +37,14 @@ def verify_answer(question, user_answer):
         verify_answer_id_counter = 1  # Set a default value if no documents are found
     else:
         verify_answer_id_counter = latest_feedback["_id"] + 1
+
+    latest_feedback2 = followup_collection.find_one(sort=[('_id', pymongo.DESCENDING)])
+
+    # Check if a document was found in the collection
+    if latest_feedback2 is None:
+        verify_answer_id_counter2 = 1  # Set a default value if no documents are found
+    else:
+        verify_answer_id_counter2 = latest_feedback2["_id"] + 1
 
     print("Verifying answer...")
     
@@ -68,39 +79,47 @@ def verify_answer(question, user_answer):
 
     elif feedback == "no":
         feedback_data = {
-            "_id": verify_answer_id_counter,
+            "_id": verify_answer_id_counter2,
             "is_correct": False,
-            "feedback": "It seems your answer needs clarification. Could you elaborate?"
+            "feedback": "It seems your answer needs clarification. Could you elaborate?",
+            "follow_up_question": None
         }
-        user_answer1 = sys.argv[2]
-        verify_answer(question, user_answer1)
+        followup_collection.insert_one(feedback_data) 
+        sys.exit()
+        # user_answer1 = sys.argv[2]
+        # verify_answer(question, user_answer1)
 
-    elif any(keyword in user_answer for keyword in ["don't know", "not sure", "no idea"]):
+    elif any(keyword in user_answer.lower() for keyword in uncertainty_words):
         feedback_data = {
-            "_id": verify_answer_id_counter+1,
+            "_id": verify_answer_id_counter2,
             "question": question,
             "user_answer": user_answer,
             "is_correct": False,
             "feedback": "That's okay! Mistakes happen. Remember, every attempt is a step towards learning.",
             "follow_up_question": None
         }
+        followup_collection.insert_one(feedback_data) 
+        sys.exit()
       
     else:
         feedback_data = {
-            "_id": verify_answer_id_counter,
+            "_id": verify_answer_id_counter2,
             "is_correct": False,
-            "feedback": "Sorry. Can you repeat?"
+            "feedback": "Sorry. Can you repeat?",
+            "follow_up_question": None
         }
-        user_answer2 = sys.argv[2]
-        verify_answer(question, user_answer2)
+        followup_collection.insert_one(feedback_data) 
+        sys.exit()
+        # user_answer2 = sys.argv[2]
+        # verify_answer(question, user_answer2)
 
     # print("Feedback data:", feedback_data)
     # Insert the feedback data into the MongoDB collection
     feedback_collection.insert_one(feedback_data)  
-    sys.stdout.flush()
+    # sys.stdout.flush()
     pretty_feedback = json.dumps(feedback_data, indent=4)
     print(pretty_feedback)
-    print(feedback_data['is_correct'])
+    # print(feedback_data['is_correct'])
     return feedback_data['is_correct']
 
 def generate_followup_question(previous_question, user_answer):

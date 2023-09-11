@@ -43,52 +43,50 @@ function QuestionSet() {
         },
         body: JSON.stringify({ answer: userAnswer, currentQuestion }),
       });
-    
+      
       try {
         const response2 = await Axios.post('http://localhost:5000/get-follow-up-question', {});
         const responseData = response2.data;
-        // setData(responseData);
-        console.log("Follow-Up Question Data:", responseData);
       
-          // setCurrentQuestion(response2.currentQuestion);
+        if (responseData.follow_up_question === null || responseData.follow_up_question === '') {
+          // If follow_up_question is null or empty, use previous question as current question
 
-        // const response2 = await fetch(
-        //   'http://localhost:5000/get-follow-up-question',
-        //   {
-        //     method: 'GET',
-        //     // Apply the cors middleware directly to the fetch request
-        //     headers: cors().headers,
-        //   });
-        // const data = await response2.json();
-        
-        // console.log("Received: ",data);
-      
-        // const generatedFollowUpQuestion = data.follow_up_question;
-      
-        // Now you can use the generatedFollowUpQuestion as needed.
-        // Update state to display the follow-up question as the current question
-        setCurrentQuestion(responseData.follow_up_question); // Update this line
-        setFollowUpQuestion(''); // Clear follow-up question
-        setUserAnswer(''); // Clear user answer
+          setFollowUpQuestion(''); // Clear follow-up question
+          setUserAnswer(''); // Clear user answer
+          // Add feedback to the conversation
+          addToConversation(responseData.feedback);
+        } else {
+          // If follow_up_question is not null, update the current question
+          setCurrentQuestion(responseData.follow_up_question);
+          setFollowUpQuestion(''); // Clear follow-up question
+          setUserAnswer(''); // Clear user answer
+        }
       } catch (error) {
         console.error('Error fetching follow-up question:', error);
         // Handle the error appropriately, e.g., return an error response to the client.
         return res.status(500).json({ error: 'Error fetching follow-up question from the server' });
       }
-      
-
-      
+            
     } catch (error) {
-      console.error('Error fetching follow-up question:', error);
+      console.error('Error fetching: ', error);
     }
       
   };
   
 
+  // const addToConversation = (question, answer) => {
+  //   const newItem = { question, answer };
+  //   setConversationHistory([...conversationHistory, newItem]);
+  // };
+
   const addToConversation = (question, answer) => {
+    // Create a new item with the current question and answer
     const newItem = { question, answer };
-    setConversationHistory([...conversationHistory, newItem]);
+    
+    // Update the conversation history by appending the new item to the existing array
+    setConversationHistory((prevHistory) => [...prevHistory, newItem]);
   };
+  
 
   const handleAnswerSubmission = () => {
     // Handle user's answer submission logic here
