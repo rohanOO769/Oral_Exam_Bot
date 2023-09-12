@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Axios from "axios";
-
+import SpeechRecognition, { useSpeechRecognition } from 'react-speech-recognition';
 
 
 function QuestionSet() {
@@ -12,59 +12,19 @@ function QuestionSet() {
   const [userAnswer, setUserAnswer] = useState('');
   const [followUpQuestion, setFollowUpQuestion] = useState('');
   const [conversationHistory, setConversationHistory] = useState([]);
-  const [isRecording, setIsRecording] = useState(false); // Track whether recording is active
-  const [recognition, setRecognition] = useState(null); // SpeechRecognition object
-  const [isSpeechRecognitionSupported, setIsSpeechRecognitionSupported] = useState(true);
-  const [isTextToSpeechSupported, setIsTextToSpeechSupported] = useState('speechSynthesis' in window);
 
   useEffect(() => {
     fetchRandomQuestion();
-    // Check if the SpeechRecognition API is available
-    if ('SpeechRecognition' in window || 'webkitSpeechRecognition' in window) {
-      const recognition = new (window.SpeechRecognition || window.webkitSpeechRecognition)();
-      recognition.continuous = true; // Allow continuous recognition
-      recognition.interimResults = true; // Get interim results as the user speaks
-      recognition.onresult = handleSpeechRecognitionResult;
-      setRecognition(recognition);
-    } else {
-      // Handle the case when speech recognition is not supported
-      setIsSpeechRecognitionSupported(false);
-      console.error('Speech recognition is not supported in this browser.');
-    }
   }, []);
 
+  const { transcript, listening, startListening, stopListening } = useSpeechRecognition();
 
-  const handleSpeechRecognitionResult = (event) => {
-    // Handle speech recognition results here
-    const transcript = event.results[0][0].transcript;
-    setUserAnswer(transcript);
+  const handleStartListening = () => {
+    startListening();
   };
 
-  const toggleRecording = () => {
-    // Start or stop recording based on the current state
-    if (!isRecording) {
-      recognition.start();
-      setIsRecording(true);
-    } else {
-      recognition.stop();
-      setIsRecording(false);
-    }
-  };
-
-  const handleRecordAnswer = () => {
-    // Add the user's answer to the conversation history
-    addToConversation(currentQuestion, userAnswer);
-
-    // Clear the user's answer field
-    setUserAnswer('');
-  };
-  
-  const speakQuestion = () => {
-    if (isTextToSpeechSupported) {
-      const synth = window.speechSynthesis;
-      const questionUtterance = new SpeechSynthesisUtterance(currentQuestion);
-      synth.speak(questionUtterance);
-    }
+  const handleStopListening = () => {
+    stopListening();
   };
 
   const fetchRandomQuestion = async () => {
@@ -125,6 +85,12 @@ function QuestionSet() {
     }
       
   };
+  
+
+  // const addToConversation = (question, answer) => {
+  //   const newItem = { question, answer };
+  //   setConversationHistory([...conversationHistory, newItem]);
+  // };
 
   const addToConversation = (question, answer) => {
     // Create a new item with the current question and answer
@@ -137,7 +103,8 @@ function QuestionSet() {
 
   const handleAnswerSubmission = () => {
     // Handle user's answer submission logic here
-
+    const answer = transcript; // Use the speech-to-text transcript as the answer
+    setUserAnswer(answer);
     fetchFollowUpQuestion();
   };
 
@@ -159,15 +126,6 @@ function QuestionSet() {
 
       <h2>Question Set</h2>
 
-      {isSpeechRecognitionSupported ? (
-        <div>
-          <p>Interviewer's Question:</p>
-          <p><strong>{currentQuestion}</strong></p>
-          <button onClick={speakQuestion}>Speak Question</button>
-        </div>
-      ) : (
-        <p>Speech recognition is not supported in this browser.</p>
-      )}
       {/* Display current question */}
       <p><strong>Question:</strong> {currentQuestion}</p>
 
@@ -188,24 +146,19 @@ function QuestionSet() {
 
       {/* Button to go back to the main page */}
       <button onClick={() => navigate('/')}>Go Back to Main Page</button>
-
-      {/* Button to toggle speech input recording */}
-      <button onClick={toggleRecording}>
-        {isRecording ? 'Stop Recording' : 'Start Recording'}
-      </button>
-
-      {/* Button to record the captured speech as an answer */}
-      <button onClick={handleRecordAnswer} disabled={!userAnswer}>
-        Record Answer
-      </button>
       
-      
+      {/* Button to start recording */}
+      <button onClick={handleStartListening}>Record your answer</button>
+
+      {/* Button to stop recording */}
+      <button onClick={handleStopListening}>Stop Recording</button>
+
+      {/* Display transcript (speech-to-text result) */}
+      <div>
+        <strong>Transcript:</strong> {transcript}
+      </div>
     </div>
   );
 }
 
-
-
 export default QuestionSet;
-
-
