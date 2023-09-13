@@ -13,7 +13,7 @@ require('dotenv').config();
 const app = express();
 const port = 5000;
 const url = "https://backend-5f1p.onrender.com/";
-app.use(cors());
+app.use(bodyParser.json());
 
 app.use(cors({
   origin: 'https://frontend-8vo3.onrender.com', // Replace with your frontend's domain
