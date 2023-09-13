@@ -120,6 +120,8 @@ def verify_answer(question, user_answer):
     pretty_feedback = json.dumps(feedback_data, indent=4)
     print(pretty_feedback)
     # print(feedback_data['is_correct'])
+    print("API Response:", response)
+
     return feedback_data['is_correct']
 
 def generate_followup_question(previous_question, user_answer):
