@@ -16,7 +16,7 @@ const url = "https://backend-5f1p.onrender.com/";
 app.use(bodyParser.json());
 
 app.use(cors({
-  origin: 'http://localhost:3000', // Replace with your frontend's domain
+  origin: 'https://frontend-8vo3.onrender.com', // Replace with your frontend's domain
   methods: ['GET', 'POST', 'OPTIONS'],
   allowedHeaders: ['Content-Type'],
 }));
