@@ -12,7 +12,7 @@ require('dotenv').config();
 
 const app = express();
 const port = 5000;
-
+const url = "https://backend-5f1p.onrender.com/";
 app.use(bodyParser.json());
 
 app.use(cors({
@@ -203,7 +203,7 @@ app.post('/submit-answer', async (req, res) => {
 
       // Call the /get-follow-up-question endpoint after the Python script completes
       try {
-        const response = await fetch('http://localhost:5000/get-follow-up-question', {
+        const response = await fetch(url+'/get-follow-up-question', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json'

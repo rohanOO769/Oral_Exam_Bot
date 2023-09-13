@@ -18,6 +18,8 @@ function QuestionSet() {
   const [isSpeechRecognitionSupported, setIsSpeechRecognitionSupported] = useState(true);
   const [isTextToSpeechSupported, setIsTextToSpeechSupported] = useState('speechSynthesis' in window);
 
+  const url = "https://backend-5f1p.onrender.com";
+
   useEffect(() => {
     fetchRandomQuestion();
     // Check if the SpeechRecognition API is available
@@ -69,7 +71,7 @@ function QuestionSet() {
 
   const fetchRandomQuestion = async () => {
     try {
-      const response = await fetch('http://localhost:5000/get-random-question', {
+      const response = await fetch(url+'/get-random-question', {
         method: 'POST',
       });
       const data = await response.json();
@@ -89,7 +91,7 @@ function QuestionSet() {
       addToConversation(currentQuestion, userAnswer);
   
       // Send the user's answer to the server for follow-up question generation
-      const response = await fetch('http://localhost:5000/submit-answer', {
+      const response = await fetch(url+'/submit-answer', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -98,7 +100,7 @@ function QuestionSet() {
       });
       
       try {
-        const response2 = await Axios.post('http://localhost:5000/get-follow-up-question', {});
+        const response2 = await Axios.post(url+'/get-follow-up-question', {});
         const responseData = response2.data;
       
         if (responseData.follow_up_question === null || responseData.follow_up_question === '') {
