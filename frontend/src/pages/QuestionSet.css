@@ -1,0 +1,71 @@
+/* QuestionSet.css */
+
+/* Style for the conversation history section */
+#conversation-history {
+  margin-bottom: 20px;
+}
+
+/* Style for the interview question section */
+#interview-question {
+  margin-top: 20px;
+  padding: 10px;
+  border: 1px solid #ccc;
+}
+
+/* Style for the "Speak Question" button */
+#speak-question-button {
+  margin-top: 10px;
+  padding: 5px 10px;
+  background-color: #007bff;
+  color: white;
+  border: none;
+  cursor: pointer;
+}
+
+/* Style for the user's answer input field */
+#user-answer {
+  width: 100%;
+  padding: 10px;
+  margin-top: 10px;
+  border: 1px solid #ccc;
+}
+
+/* Style for the "Submit Answer" button */
+#submit-answer-button {
+  margin-top: 10px;
+  padding: 10px 20px;
+  background-color: #007bff;
+  color: white;
+  border: none;
+  cursor: pointer;
+}
+
+/* Style for the "Go Back to Main Page" button */
+#go-back-button {
+  margin-top: 10px;
+  padding: 10px 20px;
+  background-color: #ccc;
+  color: #333;
+  border: none;
+  cursor: pointer;
+}
+
+/* Style for the recording-related buttons */
+.recording-button {
+  margin-top: 10px;
+  padding: 10px 20px;
+  background-color: #007bff;
+  color: white;
+  border: none;
+  cursor: pointer;
+}
+
+/* Style for disabled buttons */
+.disabled-button {
+  margin-top: 10px;
+  padding: 10px 20px;
+  background-color: #ccc;
+  color: #333;
+  border: none;
+  cursor: not-allowed;
+}

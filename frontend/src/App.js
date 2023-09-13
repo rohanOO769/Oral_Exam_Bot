@@ -2,6 +2,8 @@ import React, { useState } from 'react';
 import { BrowserRouter as Router, Route, Routes, Navigate } from 'react-router-dom';
 import { useNavigate } from 'react-router-dom';
 import QuestionSet from './pages/questionSet';
+import './App.css';
+
 
 function App() {
   const [micPermissionGranted, setMicPermissionGranted] = useState(false);
@@ -47,10 +49,11 @@ function MainPage({ grantMicPermission }) {
   };
 
   return (
-    <div>
-      <h2>Main Page</h2>
-      <button onClick={handleAlertClick}>Begin Oral Exam</button>
-    </div>
+  <div className="MainPage">
+  <h2>Main Page</h2>
+  <button onClick={handleAlertClick}>Begin Oral Exam</button>
+  </div>
+
   );
 }
 

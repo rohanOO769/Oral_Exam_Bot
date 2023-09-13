@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Axios from "axios";
+import './QuestionSet.css';
 
 
 
@@ -52,8 +53,7 @@ function QuestionSet() {
   };
 
   const handleRecordAnswer = () => {
-    // Add the user's answer to the conversation history
-    addToConversation(currentQuestion, userAnswer);
+    
 
     // Clear the user's answer field
     setUserAnswer('');
@@ -142,7 +142,7 @@ function QuestionSet() {
   };
 
   return (
-    <div>
+    <div id="conversation-history">
       {/* Display conversation history */}
       <div>
         <h1>Conversation History</h1>
@@ -160,10 +160,10 @@ function QuestionSet() {
       <h2>Question Set</h2>
 
       {isSpeechRecognitionSupported ? (
-        <div>
+        <div id="interview-question">
           <p>Interviewer's Question:</p>
           <p><strong>{currentQuestion}</strong></p>
-          <button onClick={speakQuestion}>Speak Question</button>
+          <button id="speak-question-button" onClick={speakQuestion}>Speak Question</button>
         </div>
       ) : (
         <p>Speech recognition is not supported in this browser.</p>
@@ -184,19 +184,19 @@ function QuestionSet() {
       </div>
 
       {/* Button to submit answer */}
-      <button onClick={handleAnswerSubmission}>Submit Answer</button>
+      <button id="submit-answer-button" onClick={handleAnswerSubmission}>Submit Answer</button>
 
       {/* Button to go back to the main page */}
-      <button onClick={() => navigate('/')}>Go Back to Main Page</button>
+      <button id="go-back-button" onClick={() => navigate('/')}>Go Back to Main Page</button>
 
       {/* Button to toggle speech input recording */}
-      <button onClick={toggleRecording}>
+      <button className={`recording-button ${isRecording ? '' : 'disabled-button'}`} onClick={toggleRecording}>
         {isRecording ? 'Stop Recording' : 'Start Recording'}
       </button>
 
       {/* Button to record the captured speech as an answer */}
-      <button onClick={handleRecordAnswer} disabled={!userAnswer}>
-        Record Answer
+      <button id="record-answer-button" onClick={handleRecordAnswer} disabled={!userAnswer}>
+        Reset Answer
       </button>
       
       
