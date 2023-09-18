@@ -7,16 +7,16 @@ const { MongoClient, ServerApiVersion } = require('mongodb');
 const { extractText } = require('./pdf');
 const { spawn } = require('child_process');
 const fetch = require('node-fetch');
-
+const { verifyAnswer, generateFollowUpQuestion } = require('./questions.js'); // Import the questions.jsx module
 require('dotenv').config();
 
 const app = express();
 const port = 5000;
-const url = "https://backend-5f1p.onrender.com";
+// const url = "https://backend-5f1p.onrender.com";
 app.use(bodyParser.json());
 
 app.use(cors({
-  origin: 'https://frontend-8vo3.onrender.com', // Replace with your frontend's domain
+  origin: 'http://localhost:3000', // Replace with your frontend's domain
   methods: ['GET', 'POST', 'OPTIONS'],
   allowedHeaders: ['Content-Type'],
 }));
@@ -41,63 +41,19 @@ async function connectToMongoDB() {
   }
 }
 
-async function fetchFollowUpQuestionAndFeedbackFromDatabase() {
+let globalFollowUpQuestion = '';
+
+// Endpoint to get follow-up questions
+app.post('/get-follow-up-question', (req, res) => {
   try {
-    const db = client.db('question_feedback');
-    const collection = db.collection('followUp');
+    const dataRes = req.body;
+    console.log("at /get-follow-up-question endpoint: ",dataRes);
+    console.log(dataRes.question);
+    res.json({ follow_up_question: dataRes.question });
 
-    // Fetch the latest user-specific follow-up question
-    const latestResponse = await collection.findOne({}, { sort: { _id: -1 } });
-
-    if (latestResponse) {
-      // Extract the follow-up question and feedback from the response
-      const followUpQuestion = latestResponse.follow_up_question || '';
-      const InterviewerFeedback = latestResponse.feedback || '';
-
-      // Create a JSON object containing both values
-      const responseJson = {
-        follow_up_question: followUpQuestion,
-        feedback: InterviewerFeedback,
-      };
-
-      return responseJson;
-    }
-
-    // If there's no valid follow-up question or latestResponse is null, return an empty JSON object
-    return {};
   } catch (error) {
-    console.error('Error fetching follow-up question and feedback:', error);
-    throw new Error('Failed to fetch follow-up question and feedback');
-  }
-}
-
-
-
-app.post('/get-follow-up-question', async (req, res) => {
-  try {
-    const response = await fetchFollowUpQuestionAndFeedbackFromDatabase();
-    if (response !== '') {
-      if (response.follow_up_question !== undefined) {
-        console.log('Follow-Up Question:', response.follow_up_question);
-      } else {
-        console.log('No Follow-Up Question found.');
-      }
-
-      if (response.feedback !== undefined) {
-        console.log("Interviewer's Response:", response.feedback);
-      } else {
-        console.log("No Interviewer's Response found.");
-      }
-      // Send the follow-up question data to the frontend
-      res.json({ follow_up_question: response.follow_up_question, feedback: response.feedback });
-    } else {
-      console.log('No data found in the Follow-up database.');
-    }
-    
-    
-  } catch (error) {
-    console.error('Error fetching follow-up question:', error);
-    res.status(500).json({ error: 'Failed to fetch follow-up question' });
+    console.error('Error fetching followup question:', error);
+    res.status(500).json({ error: 'Failed to fetch followup question' });
   }
 });
 
@@ -125,19 +81,23 @@ app.options('/submit-answer', cors());
 
 app.post('/submit-answer', async (req, res) => {
   try {
-    var userAnswer = req.body.answer;
-    var currentQuestion = req.body.currentQuestion;
-    console.log("Current Question: ",currentQuestion);
-    console.log("User Answer: ",userAnswer);
+    const userAnswer = req.body.answer;
+    const currentQuestion = req.body.currentQuestion;
+    console.log("Current Question: ", currentQuestion);
+    console.log("User Answer: ", userAnswer);
 
-    const db = client.db('question_feedback'); // Replace with your database name
-    const collection = db.collection('userResponses'); // Replace with your collection name
+    if (!userAnswer || !currentQuestion) {
+      return res.status(400).json({ error: 'Both question and answer are required' });
+    }
+
+    const db = client.db('question_feedback');
+    const collection = db.collection('userResponses');
     const latestFeedback = await collection.findOne({}, { sort: { _id: -1 } });
 
     let verifyAnswerIdCounter;
 
     if (latestFeedback === null) {
-      verifyAnswerIdCounter = 1; // Set a default value if no documents are found
+      verifyAnswerIdCounter = 1;
     } else {
       verifyAnswerIdCounter = latestFeedback._id + 1;
     }
@@ -151,85 +111,43 @@ app.post('/submit-answer', async (req, res) => {
 
     console.log('Data inserted into MongoDB:', result);
 
-    // Execute the Python script
-    const pythonScriptPath = '.'; // Set the path to your Python script directory
-    const pythonProcess = spawn('python', ['application.py', currentQuestion, userAnswer], {
-      cwd: pythonScriptPath,
-      shell: true
-    });
-
-    console.log('Running Python script...');
-    let pythonOutput = '';
-
-    // Capture stdout output
-    pythonProcess.stdout.on('data', (data) => {
-      pythonOutput += data.toString();
-      // console.log(`Python output:\n ${data}`);
-      // Check if the output contains the pretty_feedback
-      if (data.includes('pretty_feedback')) {
-        const prettyFeedback = data.match(/pretty_feedback:\s*(.*)/)[1];
-        console.log('Pretty Feedback:', prettyFeedback);
-      }
-    });
-
-    pythonProcess.on('close', async (code) => {
-      console.log('Python process exited with code', code);
-      console.log('Full Python output: ', pythonOutput);
-
-      // // Fetch the follow-up question after the Python script completes
-      // try {
-      //   const response = await fetchFollowUpQuestionFromDatabase();
-
-      //   if (response !== '') {
-      //     if (response.follow_up_question !== undefined) {
-      //       console.log('Follow-Up Question:', response.follow_up_question);
-      //     } else {
-      //       console.log('No Follow-Up Question found.');
-      //     }
-
-      //     if (response.Interviewer !== undefined) {
-      //       console.log("Interviewer's Response:", response.Interviewer);
-      //     } else {
-      //       console.log("No Interviewer's Response found.");
-      //     }
-      //   } else {
-      //     console.log('No data found in the Follow-up database.');
-      //   }
-      // } catch (error) {
-      //   console.error('Error fetching follow-up question:', error);
-      // }
-
+    // Call the verifyAnswer function to execute the verification logic
+    try {
+      const Data = await verifyAnswer(currentQuestion, userAnswer);
+      console.log("Feedback data: ", Data);
+      console.log(Data.is_correct);
+      if (Data.is_correct) {
+        
+        try {
+          const followUpData = await generateFollowUpQuestion(currentQuestion, userAnswer);
+          console.log("Follow Up data at backend: ", followUpData);
+          console.log(followUpData.follow_up_question);
       
+          // Send the follow-up question as a response
+          res.json({ feedback: Data.feedback+"\n"+Data.interviewer, follow_up_question: followUpData.follow_up_question });
+        } catch (error) {
+          console.error('Error generating follow-up question:', error);
+          res.status(500).json({ error: 'Failed to generate follow-up question' });
+        }
+    } else {
+      // Respond to the client with feedback (for incorrect answers) and no follow-up question
+      res.json({ feedback: Data.feedback, follow_up_question: null });
+    }
 
-      // Call the /get-follow-up-question endpoint after the Python script completes
-      try {
-        const response = await fetch(url+'/get-follow-up-question', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify({}) // Add any required data in the body if needed
-        });
-
-        const data = await response.json();
-        console.log("Follow-Up Question Data:", data);
-        // Here, you can take further actions related to the follow-up question data if needed.
-      } catch (error) {
-        console.error('Error calling /get-follow-up-question:', error);
-      }
-
-      res.json({ success: true });
-      console.log("Exited Python");
-    });
-
+      // Take further actions based on the verification result if needed
+      console.log('Exited verification process');
+    } catch (error) {
+      console.error('Error running verification:', error);
+      res.status(500).json({ error: 'Verification process failed' });
+    }
   } catch (error) {
     console.error('Error inserting data into MongoDB:', error);
     res.status(500).json({ error: 'Failed to insert data' });
     // Close the connection
     client.close();
   }
-
 });
+
 
 app.listen(port, () => {
   console.log(`Server is running on port ${port}`);

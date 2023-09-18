@@ -2,7 +2,6 @@
 
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import Axios from "axios";
 import './QuestionSet.css';
 
 
@@ -11,14 +10,14 @@ function QuestionSet() {
   const navigate = useNavigate();
   const [currentQuestion, setCurrentQuestion] = useState('');
   const [userAnswer, setUserAnswer] = useState('');
-  const [followUpQuestion, setFollowUpQuestion] = useState('');
+
   const [conversationHistory, setConversationHistory] = useState([]);
   const [isRecording, setIsRecording] = useState(false); // Track whether recording is active
   const [recognition, setRecognition] = useState(null); // SpeechRecognition object
   const [isSpeechRecognitionSupported, setIsSpeechRecognitionSupported] = useState(true);
   const [isTextToSpeechSupported, setIsTextToSpeechSupported] = useState('speechSynthesis' in window);
-
-  const url = "https://backend-5f1p.onrender.com";
+  const [feedbackToRead, setFeedbackToRead] = useState('');
+  const url = "http://localhost:5000";
 
   useEffect(() => {
     fetchRandomQuestion();
@@ -78,14 +77,13 @@ function QuestionSet() {
       console.log('Received data:', data);
       const randomQuestion = data.question;
       setCurrentQuestion(randomQuestion);
-      setFollowUpQuestion('');
       setUserAnswer('');
     } catch (error) {
       console.error('Error fetching random question:', error);
     }
   };
 
-  const fetchFollowUpQuestion = async (req, res) => {
+  const fetchFollowUpQuestion = async () => {
     try {
       // Add the current question and user answer to the conversation history
       addToConversation(currentQuestion, userAnswer);
@@ -98,35 +96,39 @@ function QuestionSet() {
         },
         body: JSON.stringify({ answer: userAnswer, currentQuestion }),
       });
-      
-      try {
-        const response2 = await Axios.post(url+'/get-follow-up-question', {});
-        const responseData = response2.data;
-      
-        if (responseData.follow_up_question === null || responseData.follow_up_question === '') {
-          // If follow_up_question is null or empty, use previous question as current question
+  
+      if (response.ok) {
+        try {
+          const data = await response.json();
+          console.log('Follow up data at frontend:', data);
+          
+          if (data.feedback) {
+            // Handle the feedback received from the server (e.g., display it to the user)
+            console.log('Feedback:', data.feedback);
+            addToConversation(data.feedback);
+            setFeedbackToRead(data.feedback);
+          }
 
-          setFollowUpQuestion(''); // Clear follow-up question
-          setUserAnswer(''); // Clear user answer
-          // Add feedback to the conversation
-          addToConversation(responseData.feedback);
-        } else {
-          // If follow_up_question is not null, update the current question
-          setCurrentQuestion(responseData.follow_up_question);
-          setFollowUpQuestion(''); // Clear follow-up question
-          setUserAnswer(''); // Clear user answer
+          if (data.follow_up_question) {
+            // Update the current question with the follow-up question
+            setCurrentQuestion(data.follow_up_question);
+          } else {
+            // Handle the case where there is no follow-up question
+            console.log('No follow-up question available.');
+          }
+  
+        } catch (error) {
+          console.error('Error parsing server data:', error);
         }
-      } catch (error) {
-        console.error('Error fetching follow-up question:', error);
-        // Handle the error appropriately, e.g., return an error response to the client.
-        return res.status(500).json({ error: 'Error fetching follow-up question from the server' });
+      } else {
+        console.error('Error submitting the answer:', response.statusText);
       }
-            
+  
     } catch (error) {
       console.error('Error fetching: ', error);
     }
-      
   };
+  
 
   const addToConversation = (question, answer) => {
     // Create a new item with the current question and answer
@@ -141,6 +143,14 @@ function QuestionSet() {
     // Handle user's answer submission logic here
 
     fetchFollowUpQuestion();
+  };
+
+  const readFeedback = () => {
+    if (isTextToSpeechSupported && feedbackToRead) {
+      const synth = window.speechSynthesis;
+      const feedbackUtterance = new SpeechSynthesisUtterance(feedbackToRead);
+      synth.speak(feedbackUtterance);
+    }
   };
 
   return (
@@ -199,6 +209,11 @@ function QuestionSet() {
       {/* Button to record the captured speech as an answer */}
       <button id="record-answer-button" onClick={handleRecordAnswer} disabled={!userAnswer}>
         Reset Answer
+      </button>
+
+      {/* Button to read feedback */}
+      <button id="read-feedback-button" onClick={readFeedback} disabled={!feedbackToRead}>
+        Read Feedback
       </button>
       
       
