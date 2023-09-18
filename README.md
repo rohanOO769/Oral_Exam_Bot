@@ -3,6 +3,9 @@ Note: The Deployed code is in **deploy** branch!
 ## Overview
 
 The Oral Exam Web App is a web-based application that conducts oral exams with students based on information contained in a PDF document. This project combines front-end development with React.js, back-end development with Node.js, natural language processing using a Large Language Model (LLM), and audio processing for speech-to-text and text-to-speech capabilities.
+This was just the skeleton of the project which involved all the required tasks.
+It can further be developed by integrating with Machine Learning.
+Since, it is an virtual interview bot we can make it to track eye movements as well using ML, so the interviewee can't look aside and see their mobile phones to answer the questions!
 
 ## Table of Contents
 
