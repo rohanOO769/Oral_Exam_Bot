@@ -5,10 +5,10 @@ const bodyParser = require('body-parser');
 const cors = require('cors');
 const { MongoClient, ServerApiVersion } = require('mongodb');
 const { extractText } = require('./pdf');
-const { spawn } = require('child_process');
-const fetch = require('node-fetch');
 const { verifyAnswer, generateFollowUpQuestion } = require('./questions.js'); // Import the questions.jsx module
 require('dotenv').config();
+const { AbortController } = require('abort-controller');
+const controller = new AbortController();
 
 const app = express();
 const port = 5000;
@@ -16,7 +16,7 @@ const port = 5000;
 app.use(bodyParser.json());
 
 app.use(cors({
-  origin: 'https://frontend-8vo3.onrender.com/', // Replace with your frontend's domain
+  origin: 'https://frontend-8vo3.onrender.com', // Replace with your frontend's domain
   methods: ['GET', 'POST', 'OPTIONS'],
   allowedHeaders: ['Content-Type'],
 }));
