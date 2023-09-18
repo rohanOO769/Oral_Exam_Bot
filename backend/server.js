@@ -16,7 +16,7 @@ const port = 5000;
 app.use(bodyParser.json());
 
 app.use(cors({
-  origin: 'http://localhost:3000', // Replace with your frontend's domain
+  origin: 'https://frontend-8vo3.onrender.com/', // Replace with your frontend's domain
   methods: ['GET', 'POST', 'OPTIONS'],
   allowedHeaders: ['Content-Type'],
 }));
@@ -40,8 +40,6 @@ async function connectToMongoDB() {
     console.error('Error connecting to MongoDB Atlas:', error);
   }
 }
-
-let globalFollowUpQuestion = '';
 
 // Endpoint to get follow-up questions
 app.post('/get-follow-up-question', (req, res) => {

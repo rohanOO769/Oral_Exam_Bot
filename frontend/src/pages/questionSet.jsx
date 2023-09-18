@@ -17,7 +17,7 @@ function QuestionSet() {
   const [isSpeechRecognitionSupported, setIsSpeechRecognitionSupported] = useState(true);
   const [isTextToSpeechSupported, setIsTextToSpeechSupported] = useState('speechSynthesis' in window);
   const [feedbackToRead, setFeedbackToRead] = useState('');
-  const url = "http://localhost:5000";
+  const url = "https://backend-5f1p.onrender.com";
 
   useEffect(() => {
     fetchRandomQuestion();
