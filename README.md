@@ -1,5 +1,5 @@
 # Oral Exam Web App
-
+Note: The Deployed code is in **deploy** branch!
 ## Overview
 
 The Oral Exam Web App is a web-based application that conducts oral exams with students based on information contained in a PDF document. This project combines front-end development with React.js, back-end development with Node.js, natural language processing using a Large Language Model (LLM), and audio processing for speech-to-text and text-to-speech capabilities.
@@ -12,7 +12,7 @@ The Oral Exam Web App is a web-based application that conducts oral exams with s
 - [Usage](#usage)
 - [Technologies Used](#technologies-used)
 - [Contributing](#contributing)
-- [License](#license)
+
 
 ## Features
 
@@ -76,13 +76,13 @@ Configure your frontend to make API requests to the correct backend URL. Update 
 2. Click the "Start Oral Exam" button to initiate the exam.
    ![image](https://github.com/rohanOO769/Oral_Exam_Bot/assets/104089399/49f7ba20-7934-40a1-bcf9-94c0ae292194)
 
-3. Follow the on-screen instructions for answering questions and interacting with the LLM (I've used openai api).
+3. Follow the on-screen instructions for answering questions and interacting with the LLM.
 
 ## Technologies Used
 
 - React.js (Frontend)
 - Node.js (Backend)
-- Large Language Model (LLM) for question generation
+- Large Language Model (LLM) for question generation (I've used openai api)
 - Speech-to-Text and Text-to-Speech services
 - HTML/CSS for web interface
 - MongoDB or your preferred database for transcript storage
